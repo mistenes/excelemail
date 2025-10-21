@@ -143,9 +143,8 @@ def upload_companies():
 
             return added, skipped
 
-        added, skipped = import_companies(rows)
-
         try:
+            added, skipped = import_companies(rows)
             db.session.commit()
         except ProgrammingError as exc:
             current_app.logger.warning(
@@ -161,9 +160,8 @@ def upload_companies():
                 )
                 return redirect(url_for("main.upload_companies"))
 
-            added, skipped = import_companies(rows)
-
             try:
+                added, skipped = import_companies(rows)
                 db.session.commit()
             except ProgrammingError as exc2:  # pragma: no cover - defensive logging
                 current_app.logger.exception(
