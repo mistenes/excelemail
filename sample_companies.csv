@@ -1,4 +1,4 @@
-name,address
-Warehouse A,123 Industrial Way Springfield
-Distribution Hub,456 Logistics Blvd Capital City
-Retail Partner,789 Market St Shelbyville
+name,street,street_number,postal_code,city
+Warehouse A,Industrial Way,123,12345,Springfield
+Distribution Hub,Logistics Blvd,456,67890,Capital City
+Retail Partner,Market St,789,54321,Shelbyville

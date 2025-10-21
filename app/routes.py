@@ -91,17 +91,29 @@ def upload_companies():
         csv_file = TextIOWrapper(file.stream, encoding="utf-8")
         reader = csv.DictReader(csv_file)
         for row in reader:
-            name = row.get("name") or row.get("Name")
-            address = row.get("address") or row.get("Address")
-            if not name or not address:
+            normalized = {k.lower(): (v or "").strip() for k, v in row.items()}
+
+            name = normalized.get("name")
+            street = normalized.get("street")
+            street_number = normalized.get("street_number")
+            postal_code = normalized.get("postal_code")
+            city = normalized.get("city")
+
+            if not all([name, street, street_number, postal_code, city]):
                 skipped += 1
                 continue
 
-            if Company.query.filter_by(name=name.strip()).first():
+            if Company.query.filter_by(name=name).first():
                 skipped += 1
                 continue
 
-            company = Company(name=name.strip(), address=address.strip())
+            company = Company(
+                name=name,
+                street=street,
+                street_number=street_number,
+                postal_code=postal_code,
+                city=city,
+            )
             db.session.add(company)
             added += 1
 

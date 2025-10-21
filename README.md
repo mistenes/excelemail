@@ -4,7 +4,7 @@ A lightweight Flask application for managing shipments. Upload companies from a 
 
 ## Features
 
-- Upload a CSV file with company names and addresses.
+- Upload a CSV file with company names and structured addresses (street, number, postal code, city).
 - Create shipments with purchase order, SAP, order number, price, weight, and time slot details.
 - Store data in a local SQLite database.
 - View the ten most recent shipments.
@@ -39,7 +39,7 @@ gunicorn run:app
 ### Initial setup
 
 1. Navigate to the **Upload Companies** page.
-2. Upload a CSV file with the headers `name` and `address`. A sample file is included as `sample_companies.csv`.
+2. Upload a CSV file with the headers `name`, `street`, `street_number`, `postal_code`, and `city`. A sample file is included as `sample_companies.csv`.
 3. Use the **Create Shipment** form to add new shipments.
 
 Uploaded companies are validated to avoid duplicates and rows missing required columns. Shipments require all fields to be filled, and the application ensures origin and destination companies are different.

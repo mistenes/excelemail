@@ -15,7 +15,7 @@
                 <select name="origin_id" id="origin_id" class="form-select" required>
                   <option value="">Select origin</option>
                   {% for company in companies %}
-                    <option value="{{ company.id }}">{{ company.name }} - {{ company.address }}</option>
+                    <option value="{{ company.id }}">{{ company.name }} - {{ company.formatted_address }}</option>
                   {% endfor %}
                 </select>
               </div>
@@ -24,7 +24,7 @@
                 <select name="destination_id" id="destination_id" class="form-select" required>
                   <option value="">Select destination</option>
                   {% for company in companies %}
-                    <option value="{{ company.id }}">{{ company.name }} - {{ company.address }}</option>
+                    <option value="{{ company.id }}">{{ company.name }} - {{ company.formatted_address }}</option>
                   {% endfor %}
                 </select>
               </div>

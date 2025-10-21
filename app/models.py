@@ -6,7 +6,10 @@ from . import db
 class Company(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-    address = db.Column(db.String(255), nullable=False)
+    street = db.Column(db.String(120), nullable=False)
+    street_number = db.Column(db.String(50), nullable=False)
+    postal_code = db.Column(db.String(20), nullable=False)
+    city = db.Column(db.String(120), nullable=False)
 
     shipments_origin = db.relationship(
         "Shipment", back_populates="origin", foreign_keys="Shipment.origin_id"
@@ -16,6 +19,18 @@ class Company(db.Model):
         back_populates="destination",
         foreign_keys="Shipment.destination_id",
     )
+
+    @property
+    def formatted_address(self) -> str:
+        """Return a human-readable address string."""
+
+        street_part = " ".join(
+            part for part in (self.street, self.street_number) if part
+        ).strip()
+        city_part = " ".join(
+            part for part in (self.postal_code, self.city) if part
+        ).strip()
+        return ", ".join(part for part in (street_part, city_part) if part)
 
     def __repr__(self) -> str:  # pragma: no cover - repr for debugging
         return f"<Company {self.name}>"
