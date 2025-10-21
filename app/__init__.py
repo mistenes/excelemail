@@ -16,35 +16,56 @@ def ensure_company_address_columns(app):
     try:
         columns = {column["name"] for column in inspector.get_columns("company")}
     except NoSuchTableError:
-        return
+        return False
 
     column_definitions = {
         "street": "street VARCHAR(120)",
-        "street_number": "street_number VARCHAR(30)",
+        "street_number": "street_number VARCHAR(50)",
         "postal_code": "postal_code VARCHAR(20)",
         "city": "city VARCHAR(120)",
     }
 
-    missing_columns = [
-        (column, ddl)
-        for column, ddl in column_definitions.items()
-        if column not in columns
-    ]
+    required_columns = set(column_definitions.keys())
 
-    if missing_columns:
-        with db.engine.begin() as connection:
-            for column, ddl in missing_columns:
-                connection.execute(text(f"ALTER TABLE company ADD COLUMN {ddl}"))
-        added = ", ".join(column for column, _ in missing_columns)
-        app.logger.info("Added missing company address columns: %s", added)
+    added_columns = set()
+    dialect = db.engine.dialect.name
 
     with db.engine.begin() as connection:
-        for column in column_definitions:
+        for column, ddl in column_definitions.items():
+            if column in columns:
+                continue
+
+            statement = f"ALTER TABLE company ADD COLUMN {ddl}"
+            if dialect == "postgresql":
+                statement = f"ALTER TABLE company ADD COLUMN IF NOT EXISTS {ddl}"
+
+            try:
+                connection.execute(text(statement))
+                added_columns.add(column)
+            except Exception:
+                app.logger.exception(
+                    "Failed to add %%s column to company table", column
+                )
+
+    if added_columns:
+        columns.update(added_columns)
+        app.logger.info(
+            "Added missing company address columns: %s",
+            ", ".join(sorted(added_columns)),
+        )
+
+    existing_columns = columns.intersection(required_columns)
+
+    if not existing_columns:
+        return False
+
+    with db.engine.begin() as connection:
+        for column in existing_columns:
             connection.execute(
                 text(f"UPDATE company SET {column} = '' WHERE {column} IS NULL")
             )
 
-        if "address" in columns:
+        if "address" in columns and "street" in existing_columns:
             connection.execute(
                 text(
                     "UPDATE company "
@@ -55,6 +76,8 @@ def ensure_company_address_columns(app):
             app.logger.info(
                 "Copied legacy address values into the new street column where needed"
             )
+
+    return required_columns.issubset(columns)
 
 
 def create_app(test_config=None):
@@ -90,6 +113,20 @@ def create_app(test_config=None):
 
     with app.app_context():
         db.create_all()
-        ensure_company_address_columns(app)
+        try:
+            app.config["COMPANY_SCHEMA_CHECKED"] = ensure_company_address_columns(app)
+        except Exception:  # pragma: no cover - defensive logging for deployment issues
+            app.logger.exception("Company schema upgrade during startup failed")
+            app.config["COMPANY_SCHEMA_CHECKED"] = False
+
+    @app.before_request
+    def ensure_company_schema_once():
+        if app.config.get("COMPANY_SCHEMA_CHECKED"):
+            return
+
+        try:
+            app.config["COMPANY_SCHEMA_CHECKED"] = ensure_company_address_columns(app)
+        except Exception:  # pragma: no cover - defensive logging for deployment issues
+            app.logger.exception("Company schema upgrade during request failed")
 
     return app

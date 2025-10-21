@@ -2,9 +2,18 @@ import csv
 from datetime import datetime
 from io import TextIOWrapper
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
+from sqlalchemy.exc import ProgrammingError
 
-from . import db
+from . import db, ensure_company_address_columns
 from .models import Company, Shipment
 
 
@@ -13,7 +22,16 @@ bp = Blueprint("main", __name__)
 
 @bp.route("/")
 def index():
-    companies = Company.query.order_by(Company.name).all()
+    try:
+        companies = Company.query.order_by(Company.name).all()
+    except ProgrammingError as exc:
+        current_app.logger.warning(
+            "Company query failed; attempting schema upgrade", exc_info=exc
+        )
+        db.session.rollback()
+        ensured = ensure_company_address_columns(current_app)
+        current_app.config["COMPANY_SCHEMA_CHECKED"] = ensured
+        companies = Company.query.order_by(Company.name).all()
     shipments = (
         Shipment.query.order_by(Shipment.created_at.desc())
         .limit(10)
