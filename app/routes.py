@@ -13,7 +13,7 @@ from flask import (
 )
 from sqlalchemy.exc import ProgrammingError
 
-from . import db, ensure_company_address_columns
+from . import db, ensure_company_schema
 from .models import Company, Shipment
 
 
@@ -29,8 +29,7 @@ def index():
             "Company query failed; attempting schema upgrade", exc_info=exc
         )
         db.session.rollback()
-        ensured = ensure_company_address_columns(current_app)
-        current_app.config["COMPANY_SCHEMA_CHECKED"] = ensured
+        ensure_company_schema(current_app)
         companies = Company.query.order_by(Company.name).all()
     shipments = (
         Shipment.query.order_by(Shipment.created_at.desc())
@@ -97,45 +96,85 @@ def create_shipment():
 @bp.route("/companies/upload", methods=["GET", "POST"])
 def upload_companies():
     if request.method == "POST":
+        if not current_app.config.get("COMPANY_SCHEMA_CHECKED"):
+            ensure_company_schema(current_app)
+
         file = request.files.get("file")
         if not file or file.filename == "":
             flash("Please choose a CSV file to upload.", "error")
             return redirect(url_for("main.upload_companies"))
 
-        added = 0
-        skipped = 0
-
         file.stream.seek(0)
         csv_file = TextIOWrapper(file.stream, encoding="utf-8")
         reader = csv.DictReader(csv_file)
-        for row in reader:
-            normalized = {k.lower(): (v or "").strip() for k, v in row.items()}
+        rows = [
+            {k.lower(): (v or "").strip() for k, v in row.items() if k}
+            for row in reader
+        ]
 
-            name = normalized.get("name")
-            street = normalized.get("street")
-            street_number = normalized.get("street_number")
-            postal_code = normalized.get("postal_code")
-            city = normalized.get("city")
+        def import_companies(entries):
+            added = 0
+            skipped = 0
 
-            if not all([name, street, street_number, postal_code, city]):
-                skipped += 1
-                continue
+            for normalized in entries:
+                name = normalized.get("name")
+                street = normalized.get("street")
+                street_number = normalized.get("street_number")
+                postal_code = normalized.get("postal_code")
+                city = normalized.get("city")
 
-            if Company.query.filter_by(name=name).first():
-                skipped += 1
-                continue
+                if not all([name, street, street_number, postal_code, city]):
+                    skipped += 1
+                    continue
 
-            company = Company(
-                name=name,
-                street=street,
-                street_number=street_number,
-                postal_code=postal_code,
-                city=city,
+                if Company.query.filter_by(name=name).first():
+                    skipped += 1
+                    continue
+
+                company = Company(
+                    name=name,
+                    street=street,
+                    street_number=street_number,
+                    postal_code=postal_code,
+                    city=city,
+                )
+                db.session.add(company)
+                added += 1
+
+            return added, skipped
+
+        added, skipped = import_companies(rows)
+
+        try:
+            db.session.commit()
+        except ProgrammingError as exc:
+            current_app.logger.warning(
+                "Company upload failed; attempting schema upgrade", exc_info=exc
             )
-            db.session.add(company)
-            added += 1
+            db.session.rollback()
+            db.session.close()
 
-        db.session.commit()
+            if not ensure_company_schema(current_app):
+                flash(
+                    "Could not adjust the company table automatically. Please retry later.",
+                    "error",
+                )
+                return redirect(url_for("main.upload_companies"))
+
+            added, skipped = import_companies(rows)
+
+            try:
+                db.session.commit()
+            except ProgrammingError as exc2:  # pragma: no cover - defensive logging
+                current_app.logger.exception(
+                    "Company upload failed again after schema upgrade", exc_info=exc2
+                )
+                db.session.rollback()
+                flash(
+                    "Upload failed because the company table is still out of date.",
+                    "error",
+                )
+                return redirect(url_for("main.upload_companies"))
 
         flash(
             f"Upload complete. Added {added} companies, skipped {skipped}.",

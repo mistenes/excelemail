@@ -80,6 +80,19 @@ def ensure_company_address_columns(app):
     return required_columns.issubset(columns)
 
 
+def ensure_company_schema(app):
+    """Ensure the company table has the structured address columns."""
+
+    try:
+        ensured = ensure_company_address_columns(app)
+    except Exception:  # pragma: no cover - defensive logging for deployment issues
+        app.logger.exception("Company schema upgrade failed")
+        ensured = False
+
+    app.config["COMPANY_SCHEMA_CHECKED"] = ensured
+    return ensured
+
+
 def create_app(test_config=None):
     app = Flask(__name__)
 
@@ -113,20 +126,13 @@ def create_app(test_config=None):
 
     with app.app_context():
         db.create_all()
-        try:
-            app.config["COMPANY_SCHEMA_CHECKED"] = ensure_company_address_columns(app)
-        except Exception:  # pragma: no cover - defensive logging for deployment issues
-            app.logger.exception("Company schema upgrade during startup failed")
-            app.config["COMPANY_SCHEMA_CHECKED"] = False
+        ensure_company_schema(app)
 
     @app.before_request
     def ensure_company_schema_once():
         if app.config.get("COMPANY_SCHEMA_CHECKED"):
             return
 
-        try:
-            app.config["COMPANY_SCHEMA_CHECKED"] = ensure_company_address_columns(app)
-        except Exception:  # pragma: no cover - defensive logging for deployment issues
-            app.logger.exception("Company schema upgrade during request failed")
+        ensure_company_schema(app)
 
     return app
