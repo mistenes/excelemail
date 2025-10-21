@@ -12,6 +12,7 @@ from flask import (
 from sqlalchemy.exc import ProgrammingError
 
 from . import db, ensure_company_schema
+from .email_utils import send_shipment_notification
 from .models import Company, Shipment
 
 
@@ -103,7 +104,16 @@ def create_shipment():
     db.session.add(shipment)
     db.session.commit()
 
-    flash("Shipment created successfully.", "success")
+    email_sent, email_message = send_shipment_notification(shipment)
+
+    if email_sent:
+        flash("Shipment created and email notification sent.", "success")
+    else:
+        flash(
+            "Shipment created, but the notification email could not be sent. "
+            + email_message,
+            "warning",
+        )
     return redirect(url_for("main.index"))
 
 

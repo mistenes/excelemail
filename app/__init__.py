@@ -143,6 +143,10 @@ def create_app(test_config=None):
         SQLALCHEMY_DATABASE_URI=database_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH=5 * 1024 * 1024,  # 5 MB
+        BREVO_API_KEY=os.getenv("BREVO_API_KEY"),
+        BREVO_SENDER_EMAIL=os.getenv("BREVO_SENDER_EMAIL"),
+        BREVO_SENDER_NAME=os.getenv("BREVO_SENDER_NAME", "Shipment Planner"),
+        BREVO_RECIPIENTS=os.getenv("BREVO_RECIPIENTS", ""),
     )
 
     if test_config:

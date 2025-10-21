@@ -15,6 +15,14 @@ services:
           property: connectionString
       - key: FLASK_ENV
         value: production
+      - key: BREVO_API_KEY
+        value: ""
+      - key: BREVO_SENDER_EMAIL
+        value: ""
+      - key: BREVO_SENDER_NAME
+        value: Shipment Planner
+      - key: BREVO_RECIPIENTS
+        value: ""
 
 databases:
   - name: shipment-planner-db

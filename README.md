@@ -57,3 +57,14 @@ service. To deploy:
 
 The application automatically picks up the `DATABASE_URL` and `SECRET_KEY` environment variables Render injects. Locally, it
 falls back to a SQLite database inside the Flask instance folder and a development secret key.
+
+## Brevo email notifications
+
+Every time you create a shipment the app can send a transactional email through [Brevo](https://www.brevo.com/). Configure the following environment variables to enable the integration:
+
+- `BREVO_API_KEY` – your Brevo transactional API key.
+- `BREVO_SENDER_EMAIL` – the email address Brevo will use as the sender.
+- `BREVO_SENDER_NAME` – optional friendly sender name (defaults to `Shipment Planner`).
+- `BREVO_RECIPIENTS` – one or more comma-separated recipient email addresses.
+
+If any of these variables are missing the shipment is still saved, but the app flashes a warning that the notification email was skipped. When you deploy to Render you can set these values in the service’s environment tab or update `render.yaml` with the appropriate values before deploying.
