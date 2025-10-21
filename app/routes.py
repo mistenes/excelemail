@@ -27,8 +27,24 @@ def index():
             "Company query failed; attempting schema upgrade", exc_info=exc
         )
         db.session.rollback()
-        ensure_company_schema(current_app)
-        companies = Company.query.order_by(Company.name).all()
+        if not ensure_company_schema(current_app):
+            flash(
+                "The company table could not be upgraded automatically. Please try again later.",
+                "error",
+            )
+            companies = []
+        else:
+            try:
+                companies = Company.query.order_by(Company.name).all()
+            except ProgrammingError as exc2:  # pragma: no cover - defensive logging
+                current_app.logger.exception(
+                    "Company query failed again after schema upgrade", exc_info=exc2
+                )
+                flash(
+                    "The company records could not be loaded after an automatic upgrade.",
+                    "error",
+                )
+                companies = []
     shipments = (
         Shipment.query.order_by(Shipment.created_at.desc())
         .limit(10)
@@ -115,8 +131,23 @@ def upload_companies():
                 "Company lookup failed; attempting schema upgrade", exc_info=exc
             )
             db.session.rollback()
-            ensure_company_schema(current_app)
-            existing = Company.query.filter_by(name=company_data["name"]).first()
+            if not ensure_company_schema(current_app):
+                flash(
+                    "Could not prepare the company table automatically. Please retry later.",
+                    "error",
+                )
+                return redirect(url_for("main.upload_companies"))
+            try:
+                existing = Company.query.filter_by(name=company_data["name"]).first()
+            except ProgrammingError as exc2:  # pragma: no cover - defensive logging
+                current_app.logger.exception(
+                    "Company lookup failed again after schema upgrade", exc_info=exc2
+                )
+                flash(
+                    "Could not read the company table after an automatic upgrade. Please retry later.",
+                    "error",
+                )
+                return redirect(url_for("main.upload_companies"))
 
         if existing:
             flash("A company with this name already exists.", "info")
