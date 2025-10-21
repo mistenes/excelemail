@@ -1,6 +1,4 @@
-import csv
 from datetime import datetime
-from io import TextIOWrapper
 
 from flask import (
     Blueprint,
@@ -95,64 +93,52 @@ def create_shipment():
 
 @bp.route("/companies/upload", methods=["GET", "POST"])
 def upload_companies():
-    if request.method == "POST":
-        if not current_app.config.get("COMPANY_SCHEMA_CHECKED"):
-            ensure_company_schema(current_app)
+    if not current_app.config.get("COMPANY_SCHEMA_CHECKED"):
+        ensure_company_schema(current_app)
 
-        file = request.files.get("file")
-        if not file or file.filename == "":
-            flash("Please choose a CSV file to upload.", "error")
+    if request.method == "POST":
+        fields = ["name", "street", "street_number", "postal_code", "city"]
+        company_data = {field: request.form.get(field, "").strip() for field in fields}
+        missing = [field for field, value in company_data.items() if not value]
+
+        if missing:
+            flash(
+                "All company details are required (name, street, street number, postal code, city).",
+                "error",
+            )
             return redirect(url_for("main.upload_companies"))
 
-        file.stream.seek(0)
-        csv_file = TextIOWrapper(file.stream, encoding="utf-8")
-        reader = csv.DictReader(csv_file)
-        rows = [
-            {k.lower(): (v or "").strip() for k, v in row.items() if k}
-            for row in reader
-        ]
+        try:
+            existing = Company.query.filter_by(name=company_data["name"]).first()
+        except ProgrammingError as exc:
+            current_app.logger.warning(
+                "Company lookup failed; attempting schema upgrade", exc_info=exc
+            )
+            db.session.rollback()
+            ensure_company_schema(current_app)
+            existing = Company.query.filter_by(name=company_data["name"]).first()
 
-        def import_companies(entries):
-            added = 0
-            skipped = 0
+        if existing:
+            flash("A company with this name already exists.", "info")
+            return redirect(url_for("main.upload_companies"))
 
-            for normalized in entries:
-                name = normalized.get("name")
-                street = normalized.get("street")
-                street_number = normalized.get("street_number")
-                postal_code = normalized.get("postal_code")
-                city = normalized.get("city")
-
-                if not all([name, street, street_number, postal_code, city]):
-                    skipped += 1
-                    continue
-
-                if Company.query.filter_by(name=name).first():
-                    skipped += 1
-                    continue
-
-                company = Company(
-                    name=name,
-                    street=street,
-                    street_number=street_number,
-                    postal_code=postal_code,
-                    city=city,
-                )
-                db.session.add(company)
-                added += 1
-
-            return added, skipped
+        def create_company():
+            return Company(
+                name=company_data["name"],
+                street=company_data["street"],
+                street_number=company_data["street_number"],
+                postal_code=company_data["postal_code"],
+                city=company_data["city"],
+            )
 
         try:
-            added, skipped = import_companies(rows)
+            db.session.add(create_company())
             db.session.commit()
         except ProgrammingError as exc:
             current_app.logger.warning(
-                "Company upload failed; attempting schema upgrade", exc_info=exc
+                "Company create failed; attempting schema upgrade", exc_info=exc
             )
             db.session.rollback()
-            db.session.close()
-
             if not ensure_company_schema(current_app):
                 flash(
                     "Could not adjust the company table automatically. Please retry later.",
@@ -161,23 +147,20 @@ def upload_companies():
                 return redirect(url_for("main.upload_companies"))
 
             try:
-                added, skipped = import_companies(rows)
+                db.session.add(create_company())
                 db.session.commit()
             except ProgrammingError as exc2:  # pragma: no cover - defensive logging
                 current_app.logger.exception(
-                    "Company upload failed again after schema upgrade", exc_info=exc2
+                    "Company create failed again after schema upgrade", exc_info=exc2
                 )
                 db.session.rollback()
                 flash(
-                    "Upload failed because the company table is still out of date.",
+                    "Saving the company failed because the table is still out of date.",
                     "error",
                 )
                 return redirect(url_for("main.upload_companies"))
 
-        flash(
-            f"Upload complete. Added {added} companies, skipped {skipped}.",
-            "success" if added else "info",
-        )
+        flash("Company added successfully.", "success")
         return redirect(url_for("main.index"))
 
     return render_template("upload.html")

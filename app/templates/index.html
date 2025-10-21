@@ -7,7 +7,9 @@
         <div class="card-header">New Shipment</div>
         <div class="card-body">
           {% if not companies %}
-            <p class="text-muted">Upload companies before creating shipments.</p>
+            <p class="text-muted">Add at least one company before creating shipments.</p>
+            <a class="btn btn-outline-primary" href="{{ url_for('main.upload_companies') }}">Add your first company</a>
+            <hr>
           {% else %}
             <form method="post" action="{{ url_for('main.create_shipment') }}">
               <div class="mb-3">

@@ -1,22 +1,36 @@
 {% extends 'base.html' %}
-{% block title %}Upload Companies{% endblock %}
+{% block title %}Add Company{% endblock %}
 {% block content %}
   <div class="row justify-content-center">
     <div class="col-lg-6">
       <div class="card">
-        <div class="card-header">Upload Company List</div>
+        <div class="card-header">Add a Company</div>
         <div class="card-body">
           <p class="text-muted">
-            Upload a CSV file with columns
-            <code>name</code>, <code>street</code>, <code>street_number</code>,
-            <code>postal_code</code>, and <code>city</code>.
+            CSV uploads are temporarily disabled. Enter the company details manually below.
           </p>
-          <form method="post" enctype="multipart/form-data">
+          <form method="post">
             <div class="mb-3">
-              <label for="file" class="form-label">Company CSV</label>
-              <input class="form-control" type="file" id="file" name="file" accept=".csv" required>
+              <label for="name" class="form-label">Company Name</label>
+              <input class="form-control" type="text" id="name" name="name" required>
             </div>
-            <button type="submit" class="btn btn-primary">Upload</button>
+            <div class="mb-3">
+              <label for="street" class="form-label">Street</label>
+              <input class="form-control" type="text" id="street" name="street" required>
+            </div>
+            <div class="mb-3">
+              <label for="street_number" class="form-label">Street Number</label>
+              <input class="form-control" type="text" id="street_number" name="street_number" required>
+            </div>
+            <div class="mb-3">
+              <label for="postal_code" class="form-label">Postal Code</label>
+              <input class="form-control" type="text" id="postal_code" name="postal_code" required>
+            </div>
+            <div class="mb-3">
+              <label for="city" class="form-label">City</label>
+              <input class="form-control" type="text" id="city" name="city" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Company</button>
           </form>
         </div>
       </div>
