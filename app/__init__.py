@@ -17,6 +17,8 @@ def create_app(test_config=None):
     database_url = os.getenv("DATABASE_URL")
     if database_url and database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
+    if database_url and database_url.startswith("postgresql://") and "+psycopg://" not in database_url:
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
     if not database_url:
         database_url = f"sqlite:///{instance_path / 'excelemail.db'}"
 
