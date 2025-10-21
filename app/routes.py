@@ -154,13 +154,34 @@ def upload_companies():
             return redirect(url_for("main.upload_companies"))
 
         def create_company():
-            return Company(
+            company = Company(
                 name=company_data["name"],
                 street=company_data["street"],
                 street_number=company_data["street_number"],
                 postal_code=company_data["postal_code"],
                 city=company_data["city"],
             )
+            if hasattr(company, "address"):
+                street_part = " ".join(
+                    part
+                    for part in (
+                        company_data["street"],
+                        company_data["street_number"],
+                    )
+                    if part
+                ).strip()
+                city_part = " ".join(
+                    part
+                    for part in (
+                        company_data["postal_code"],
+                        company_data["city"],
+                    )
+                    if part
+                ).strip()
+                company.address = ", ".join(
+                    part for part in (street_part, city_part) if part
+                )
+            return company
 
         try:
             db.session.add(create_company())

@@ -14,10 +14,12 @@ def ensure_company_address_columns(app):
     inspector = inspect(db.engine)
 
     try:
-        columns = {column["name"] for column in inspector.get_columns("company")}
+        raw_columns = inspector.get_columns("company")
     except NoSuchTableError:
         return False
 
+    columns = {column["name"] for column in raw_columns}
+    column_info = {column["name"]: column for column in raw_columns}
     column_definitions = {
         "street": "street VARCHAR(120)",
         "street_number": "street_number VARCHAR(50)",
@@ -46,6 +48,35 @@ def ensure_company_address_columns(app):
                 app.logger.exception(
                     "Failed to add %%s column to company table", column
                 )
+
+        address_info = column_info.get("address")
+        if address_info:
+            if not address_info.get("nullable", True) and dialect == "postgresql":
+                try:
+                    connection.execute(
+                        text("ALTER TABLE company ALTER COLUMN address DROP NOT NULL")
+                    )
+                    app.logger.info(
+                        "Dropped NOT NULL constraint from legacy company.address column"
+                    )
+                except Exception:  # pragma: no cover - deployment safeguard
+                    app.logger.exception(
+                        "Failed to relax NOT NULL constraint on company.address"
+                    )
+
+            if dialect == "postgresql":
+                try:
+                    connection.execute(
+                        text("ALTER TABLE company ALTER COLUMN address SET DEFAULT ''")
+                    )
+                except Exception:  # pragma: no cover - deployment safeguard
+                    app.logger.exception(
+                        "Failed to set default for company.address"
+                    )
+
+            connection.execute(
+                text("UPDATE company SET address = '' WHERE address IS NULL")
+            )
 
     if added_columns:
         columns.update(added_columns)
